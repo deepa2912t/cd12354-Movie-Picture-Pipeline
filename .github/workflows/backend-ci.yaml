@@ -1,0 +1,67 @@
+name: Backend Continuous Integration
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'starter/backend/**'
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Pipenv
+        run: pip install pipenv
+
+      - name: Install Dependencies
+        working-directory: starter/backend
+        run: pipenv install --dev
+
+      - name: Run Linter
+        working-directory: starter/backend
+        run: pipenv run lint
+
+  test:
+    name: Test Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Pipenv
+        run: pip install pipenv
+
+      - name: Install Dependencies
+        working-directory: starter/backend
+        run: pipenv install --dev
+
+      - name: Run Unit Tests
+        working-directory: starter/backend
+        run: pipenv run test
+
+  build:
+    name: Build Docker Image
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Build Docker Image
+        working-directory: starter/backend
+        run: docker build --tag mp-backend:ci-test .

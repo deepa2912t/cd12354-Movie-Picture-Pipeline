@@ -1,0 +1,85 @@
+name: Frontend Continuous Integration
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'starter/frontend/**'
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: starter/frontend/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: starter/frontend
+        run: npm ci
+
+      - name: Run Linter
+        working-directory: starter/frontend
+        run: npm run lint
+
+  test:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: starter/frontend/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: starter/frontend
+        run: npm ci
+
+      - name: Run Tests
+        working-directory: starter/frontend
+        run: CI=true npm test
+
+  build:
+    name: Build Docker Image
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: starter/frontend/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: starter/frontend
+        run: npm ci
+
+      - name: Run Test Verification
+        working-directory: starter/frontend
+        run: CI=true npm test
+
+      - name: Build Docker Container
+        working-directory: starter/frontend
+        env:
+          REACT_APP_MOVIE_API_URL: ${{ secrets.REACT_APP_MOVIE_API_URL }}
+        run: |
+          docker build \
+            --build-arg REACT_APP_MOVIE_API_URL=${REACT_APP_MOVIE_API_URL:-http://localhost:5000} \
+            --tag mp-frontend:ci-test .
