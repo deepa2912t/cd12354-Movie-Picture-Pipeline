@@ -37,4 +37,4 @@ USER app
 WORKDIR /app
 
 # Exec form for CMD ensures signals like SIGTERM pass correctly
-CMD ["uwsgi", "--http", ":5000", "--master", "--enable-threads", "-s", "/var/www/app/app.sock", "--manage-script-name", "--mount", "/=app:app"]
+CMD ["uwsgi", "--http", ":5000", "--master", "--enable-threads", "-s", "/var/www/app/app.sock", "--manage-script-name", "--mount", "/=backend:app"]
