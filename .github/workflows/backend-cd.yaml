@@ -1,119 +1,148 @@
-name: Backend Continuous Deployment
+name: Backend CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
     paths:
       - 'starter/backend/**'
   workflow_dispatch:
 
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER: cluster
+  ECR_REPOSITORY: backend
+
 jobs:
   lint:
-    name: Lint Backend
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: starter/backend
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
-      - name: Install Pipenv
-        run: pip install pipenv
-
-      - name: Install Dependencies
-        working-directory: starter/backend
-        run: pipenv install --dev
-
-      - name: Run Linter
-        working-directory: starter/backend
-        run: pipenv run lint
+          cache: pipenv
+          cache-dependency-path: starter/backend/Pipfile
+      - run: pip install pipenv
+      - run: pipenv install --dev
+      - run: pipenv run lint
 
   test:
-    name: Test Backend
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: starter/backend
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: pipenv
+          cache-dependency-path: starter/backend/Pipfile
+      - run: pip install pipenv
+      - run: pipenv install --dev
+      - run: pipenv run test
 
-      - name: Install Pipenv
-        run: pip install pipenv
-
-      - name: Install Dependencies
-        working-directory: starter/backend
-        run: pipenv install --dev
-
-      - name: Run Unit Tests
-        working-directory: starter/backend
-        run: pipenv run test
-
-  build-and-deploy:
-    name: Build, Push, and Deploy
+  build:
     needs: [lint, test]
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.image.outputs.image }}
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Parse AWS Credentials
         id: aws-creds
         env:
-          AWS_JSON: ${{ secrets.AWS_CREDENTIALS }}
+          AWS_DATA: ${{ secrets.AWS_CREDENTIALS }}
         run: |
-          KEY_ID=$(echo "$AWS_JSON" | jq -r '(.aws_access_key_id // .["aws-access-key-id"] // .AccessKeyId)')
-          SECRET_KEY=$(echo "$AWS_JSON" | jq -r '(.aws_secret_access_key // .["aws-secret-access-key"] // .SecretAccessKey)')
-          TOKEN=$(echo "$AWS_JSON" | jq -r '(.aws_session_token // .["aws-session-token"] // .SessionToken)')
-          
+          if echo "$AWS_DATA" | jq . >/dev/null 2>&1; then
+            KEY_ID=$(echo "$AWS_DATA" | jq -r '(.aws_access_key_id // .["aws-access-key-id"] // .AccessKeyId // empty)')
+            SECRET_KEY=$(echo "$AWS_DATA" | jq -r '(.aws_secret_access_key // .["aws-secret-access-key"] // .SecretAccessKey // empty)')
+            TOKEN=$(echo "$AWS_DATA" | jq -r '(.aws_session_token // .["aws-session-token"] // .SessionToken // empty)')
+          else
+            KEY_ID=$(echo "$AWS_DATA" | grep -i "aws_access_key_id" | head -n1 | awk -F'=' '{print $2}' | tr -d ' "\r\n')
+            SECRET_KEY=$(echo "$AWS_DATA" | grep -i "aws_secret_access_key" | head -n1 | awk -F'=' '{print $2}' | tr -d ' "\r\n')
+            TOKEN=$(echo "$AWS_DATA" | grep -i "aws_session_token" | head -n1 | awk -F'=' '{print $2}' | tr -d ' "\r\n')
+          fi
+
           echo "::add-mask::$KEY_ID"
           echo "::add-mask::$SECRET_KEY"
           echo "::add-mask::$TOKEN"
-          
+
           echo "aws_access_key_id=$KEY_ID" >> $GITHUB_OUTPUT
           echo "aws_secret_access_key=$SECRET_KEY" >> $GITHUB_OUTPUT
           echo "aws_session_token=$TOKEN" >> $GITHUB_OUTPUT
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ steps.aws-creds.outputs.aws_access_key_id }}
           aws-secret-access-key: ${{ steps.aws-creds.outputs.aws_secret_access_key }}
           aws-session-token: ${{ steps.aws-creds.outputs.aws_session_token }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Log in to Amazon ECR
-        id: login-ecr
+      - name: Ensure ECR repository exists
+        run: |
+          if ! aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" >/dev/null 2>&1; then
+            aws ecr create-repository --repository-name "$ECR_REPOSITORY"
+          fi
+
+      - id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Setup Kustomize
-        uses: imranismail/setup-kustomize@v2
+      - id: image
+        run: echo "image=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
 
-      - name: Build and Push Docker Image
+      - uses: docker/build-push-action@v6
+        with:
+          context: starter/backend
+          push: true
+          tags: ${{ steps.image.outputs.image }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse AWS Credentials
+        id: aws-creds
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: mp-backend
-          IMAGE_TAG: ${{ github.sha }}
+          AWS_DATA: ${{ secrets.AWS_CREDENTIALS }}
         run: |
-          cd starter/backend
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          if echo "$AWS_DATA" | jq . >/dev/null 2>&1; then
+            KEY_ID=$(echo "$AWS_DATA" | jq -r '(.aws_access_key_id // .["aws-access-key-id"] // .AccessKeyId // empty)')
+            SECRET_KEY=$(echo "$AWS_DATA" | jq -r '(.aws_secret_access_key // .["aws-secret-access-key"] // .SecretAccessKey // empty)')
+            TOKEN=$(echo "$AWS_DATA" | jq -r '(.aws_session_token // .["aws-session-token"] // .SessionToken // empty)')
+          else
+            KEY_ID=$(echo "$AWS_DATA" | grep -i "aws_access_key_id" | head -n1 | awk -F'=' '{print $2}' | tr -d ' "\r\n')
+            SECRET_KEY=$(echo "$AWS_DATA" | grep -i "aws_secret_access_key" | head -n1 | awk -F'=' '{print $2}' | tr -d ' "\r\n')
+            TOKEN=$(echo "$AWS_DATA" | grep -i "aws_session_token" | head -n1 | awk -F'=' '{print $2}' | tr -d ' "\r\n')
+          fi
 
-      - name: Update Kubeconfig
-        run: |
-          aws eks update-kubeconfig --name cluster --region us-east-1
+          echo "::add-mask::$KEY_ID"
+          echo "::add-mask::$SECRET_KEY"
+          echo "::add-mask::$TOKEN"
 
-      - name: Deploy to Kubernetes Cluster
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: mp-backend
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
+          echo "aws_access_key_id=$KEY_ID" >> $GITHUB_OUTPUT
+          echo "aws_secret_access_key=$SECRET_KEY" >> $GITHUB_OUTPUT
+          echo "aws_session_token=$TOKEN" >> $GITHUB_OUTPUT
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ steps.aws-creds.outputs.aws_access_key_id }}
+          aws-secret-access-key: ${{ steps.aws-creds.outputs.aws_secret_access_key }}
+          aws-session-token: ${{ steps.aws-creds.outputs.aws_session_token }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+
+      - uses: imranismail/setup-kustomize@v2
+
+      - run: |
           cd starter/backend/k8s
-          kustomize edit set image backend=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          kustomize edit set image backend=${{ needs.build.outputs.image }}
           kustomize build | kubectl apply -f -
