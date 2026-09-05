@@ -53,34 +53,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Parse AWS Credentials
-        id: aws-creds
-        env:
-          AWS_DATA: ${{ secrets.AWS_CREDENTIALS }}
-        run: |
-          if echo "$AWS_DATA" | jq . >/dev/null 2>&1; then
-            KEY_ID=$(echo "$AWS_DATA" | jq -r '(.aws_access_key_id // .["aws-access-key-id"] // .AccessKeyId // empty)')
-            SECRET_KEY=$(echo "$AWS_DATA" | jq -r '(.aws_secret_access_key // .["aws-secret-access-key"] // .SecretAccessKey // empty)')
-            TOKEN=$(echo "$AWS_DATA" | jq -r '(.aws_session_token // .["aws-session-token"] // .SessionToken // empty)')
-          else
-            KEY_ID=$(echo "$AWS_DATA" | grep -i "aws_access_key_id" | head -n1 | awk -F'=' '{print $2}' | tr -d ' "\r\n')
-            SECRET_KEY=$(echo "$AWS_DATA" | grep -i "aws_secret_access_key" | head -n1 | awk -F'=' '{print $2}' | tr -d ' "\r\n')
-            TOKEN=$(echo "$AWS_DATA" | grep -i "aws_session_token" | head -n1 | awk -F'=' '{print $2}' | tr -d ' "\r\n')
-          fi
-
-          echo "::add-mask::$KEY_ID"
-          echo "::add-mask::$SECRET_KEY"
-          echo "::add-mask::$TOKEN"
-
-          echo "aws_access_key_id=$KEY_ID" >> $GITHUB_OUTPUT
-          echo "aws_secret_access_key=$SECRET_KEY" >> $GITHUB_OUTPUT
-          echo "aws_session_token=$TOKEN" >> $GITHUB_OUTPUT
-
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ steps.aws-creds.outputs.aws_access_key_id }}
-          aws-secret-access-key: ${{ steps.aws-creds.outputs.aws_secret_access_key }}
-          aws-session-token: ${{ steps.aws-creds.outputs.aws_session_token }}
+          aws-access-key-id: ${{ fromJSON(secrets.AWS_CREDENTIALS)['aws_access_key_id'] }}
+          aws-secret-access-key: ${{ fromJSON(secrets.AWS_CREDENTIALS)['aws_secret_access_key'] }}
+          aws-session-token: ${{ fromJSON(secrets.AWS_CREDENTIALS)['aws_session_token'] }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Ensure ECR repository exists
@@ -107,34 +84,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Parse AWS Credentials
-        id: aws-creds
-        env:
-          AWS_DATA: ${{ secrets.AWS_CREDENTIALS }}
-        run: |
-          if echo "$AWS_DATA" | jq . >/dev/null 2>&1; then
-            KEY_ID=$(echo "$AWS_DATA" | jq -r '(.aws_access_key_id // .["aws-access-key-id"] // .AccessKeyId // empty)')
-            SECRET_KEY=$(echo "$AWS_DATA" | jq -r '(.aws_secret_access_key // .["aws-secret-access-key"] // .SecretAccessKey // empty)')
-            TOKEN=$(echo "$AWS_DATA" | jq -r '(.aws_session_token // .["aws-session-token"] // .SessionToken // empty)')
-          else
-            KEY_ID=$(echo "$AWS_DATA" | grep -i "aws_access_key_id" | head -n1 | awk -F'=' '{print $2}' | tr -d ' "\r\n')
-            SECRET_KEY=$(echo "$AWS_DATA" | grep -i "aws_secret_access_key" | head -n1 | awk -F'=' '{print $2}' | tr -d ' "\r\n')
-            TOKEN=$(echo "$AWS_DATA" | grep -i "aws_session_token" | head -n1 | awk -F'=' '{print $2}' | tr -d ' "\r\n')
-          fi
-
-          echo "::add-mask::$KEY_ID"
-          echo "::add-mask::$SECRET_KEY"
-          echo "::add-mask::$TOKEN"
-
-          echo "aws_access_key_id=$KEY_ID" >> $GITHUB_OUTPUT
-          echo "aws_secret_access_key=$SECRET_KEY" >> $GITHUB_OUTPUT
-          echo "aws_session_token=$TOKEN" >> $GITHUB_OUTPUT
-
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ steps.aws-creds.outputs.aws_access_key_id }}
-          aws-secret-access-key: ${{ steps.aws-creds.outputs.aws_secret_access_key }}
-          aws-session-token: ${{ steps.aws-creds.outputs.aws_session_token }}
+          aws-access-key-id: ${{ fromJSON(secrets.AWS_CREDENTIALS)['aws_access_key_id'] }}
+          aws-secret-access-key: ${{ fromJSON(secrets.AWS_CREDENTIALS)['aws_secret_access_key'] }}
+          aws-session-token: ${{ fromJSON(secrets.AWS_CREDENTIALS)['aws_session_token'] }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Update kubeconfig
