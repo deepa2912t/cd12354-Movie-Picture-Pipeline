@@ -1,6 +1,9 @@
 # Movie Picture Pipeline
 
 You've been brought on as the DevOps resource for a development team that manages a web application that is a catalog of Movie Picture movies. They're in dire need of automating their development workflows in hopes of accelerating their release cycle. They'd like to use Github Actions to automate testing, building and deploying their applications to an existing Kubernetes cluster.
+Git_Repo:https://github.com/deepa2912t/cd12354-Movie-Picture-Pipeline.git
+frontend_URL:http://845827442971.dkr.ecr.us-east-1.amazonaws.com/mp-frontend:6434cc5c62da3dd0e6959ff1ead4253a5fcde615 
+Backend_URL:http://845827442971.dkr.ecr.us-east-1.amazonaws.com/backend:e9c26a7ce47e52362476e7d97549305d7f762986
 
 The team's project is comprised of 2 applications.
 
