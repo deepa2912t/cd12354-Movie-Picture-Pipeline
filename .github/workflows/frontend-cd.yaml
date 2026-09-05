@@ -7,6 +7,11 @@ on:
       - 'starter/frontend/**'
   workflow_dispatch:
 
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER: cluster
+  ECR_REPOSITORY: mp-frontend
+
 jobs:
   lint:
     name: Lint Frontend
@@ -63,10 +68,16 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ fromJSON(secrets.AWS_CREDENTIALS)['aws_access_key_id'] || fromJSON(secrets.AWS_CREDENTIALS)['aws-access-key-id'] }}
-          aws-secret-access-key: ${{ fromJSON(secrets.AWS_CREDENTIALS)['aws_secret_access_key'] || fromJSON(secrets.AWS_CREDENTIALS)['aws-secret-access-key'] }}
-          aws-session-token: ${{ fromJSON(secrets.AWS_CREDENTIALS)['aws_session_token'] || fromJSON(secrets.AWS_CREDENTIALS)['aws-session-token'] }}
-          aws-region: us-east-1
+          aws-access-key-id: ${{ fromJSON(secrets.AWS_CREDENTIALS)['aws_access_key_id'] }}
+          aws-secret-access-key: ${{ fromJSON(secrets.AWS_CREDENTIALS)['aws_secret_access_key'] }}
+          aws-session-token: ${{ fromJSON(secrets.AWS_CREDENTIALS)['aws_session_token'] }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Ensure ECR repository exists
+        run: |
+          if ! aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" >/dev/null 2>&1; then
+            aws ecr create-repository --repository-name "$ECR_REPOSITORY"
+          fi
 
       - name: Log in to Amazon ECR
         id: login-ecr
@@ -78,7 +89,6 @@ jobs:
       - name: Build and Push Docker Image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: mp-frontend
           IMAGE_TAG: ${{ github.sha }}
           REACT_APP_MOVIE_API_URL: ${{ secrets.REACT_APP_MOVIE_API_URL }}
         run: |
@@ -90,12 +100,11 @@ jobs:
 
       - name: Update Kubeconfig
         run: |
-          aws eks update-kubeconfig --name cluster --region us-east-1
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
 
       - name: Deploy to Kubernetes Cluster
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: mp-frontend
           IMAGE_TAG: ${{ github.sha }}
         run: |
           cd starter/frontend/k8s
