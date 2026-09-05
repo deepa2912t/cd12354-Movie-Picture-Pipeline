@@ -17,8 +17,15 @@ RUN apk update && \
 RUN mkdir -p /var/www/app && mkdir /app
 
 COPY Pipfile* /app
+
+# Suppress GCC 15 incompatible pointer type error for uwsgi
+ENV CFLAGS="-Wno-error=incompatible-pointer-types"
 RUN cd /app && pipenv install --system --deploy
 
 COPY . /app
 
-CMD uwsgi --http :5000 --master --enable-threads -s /var/www/app/app.sock --manage-script-name --mount /=app:app
+# Switch to non-root user for security
+USER app
+
+# Exec form for CMD ensures signals like SIGTERM pass correctly
+CMD ["uwsgi", "--http", ":5000", "--master", "--enable-threads", "-s", "/var/www/app/app.sock", "--manage-script-name", "--mount", "/=app:app"]
