@@ -62,12 +62,29 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Parse AWS Credentials
+        id: aws-creds
+        env:
+          AWS_JSON: ${{ secrets.AWS_CREDENTIALS }}
+        run: |
+          KEY_ID=$(echo "$AWS_JSON" | jq -r '(.aws_access_key_id // .["aws-access-key-id"] // .AccessKeyId)')
+          SECRET_KEY=$(echo "$AWS_JSON" | jq -r '(.aws_secret_access_key // .["aws-secret-access-key"] // .SecretAccessKey)')
+          TOKEN=$(echo "$AWS_JSON" | jq -r '(.aws_session_token // .["aws-session-token"] // .SessionToken)')
+          
+          echo "::add-mask::$KEY_ID"
+          echo "::add-mask::$SECRET_KEY"
+          echo "::add-mask::$TOKEN"
+          
+          echo "aws_access_key_id=$KEY_ID" >> $GITHUB_OUTPUT
+          echo "aws_secret_access_key=$SECRET_KEY" >> $GITHUB_OUTPUT
+          echo "aws_session_token=$TOKEN" >> $GITHUB_OUTPUT
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ fromJSON(secrets.AWS_CREDENTIALS)['aws_access_key_id'] || fromJSON(secrets.AWS_CREDENTIALS)['aws-access-key-id'] }}
-          aws-secret-access-key: ${{ fromJSON(secrets.AWS_CREDENTIALS)['aws_secret_access_key'] || fromJSON(secrets.AWS_CREDENTIALS)['aws-secret-access-key'] }}
-          aws-session-token: ${{ fromJSON(secrets.AWS_CREDENTIALS)['aws_session_token'] || fromJSON(secrets.AWS_CREDENTIALS)['aws-session-token'] }}
+          aws-access-key-id: ${{ steps.aws-creds.outputs.aws_access_key_id }}
+          aws-secret-access-key: ${{ steps.aws-creds.outputs.aws_secret_access_key }}
+          aws-session-token: ${{ steps.aws-creds.outputs.aws_session_token }}
           aws-region: us-east-1
 
       - name: Log in to Amazon ECR
