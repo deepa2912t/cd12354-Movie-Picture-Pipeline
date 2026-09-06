@@ -42,7 +42,10 @@ function MovieDetail({ movie }) {
 
 MovieDetail.propTypes = {
   movie: PropTypes.shape({
-    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    id: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.number,
+    ]).isRequired,
     title: PropTypes.string,
     description: PropTypes.string,
   }),
