@@ -1,54 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import PropTypes from 'prop-types';
 import axios from 'axios';
+import { movieApiUrl } from '../api';
 
 function MovieDetail({ movie }) {
-  const [details, setDetails] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+const [details, setDetails] = useState(null);
 
-  useEffect(() => {
-    if (!movie || !movie.id) return;
+useEffect(() => {
+axios.get(`${movieApiUrl}/movies/${movie.id}`).then((response) => {
+setDetails(response.data);
+});
+}, [movie]);
 
-    const baseUrl = process.env.REACT_APP_MOVIE_API_URL || '';
-    setLoading(true);
-    setError(null);
-
-    axios
-      .get(`${baseUrl}/movies/${movie.id}`)
-      .then((response) => {
-        const data = response.data;
-        setDetails(data.movie || data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Error fetching movie details:', err);
-        setError(err.message);
-        setLoading(false);
-      });
-  }, [movie?.id]);
-
-  if (!movie) return <div>Select a movie to view details.</div>;
-  if (loading) return <div>Loading movie details...</div>;
-  if (error) return <div>Error loading details: {error}</div>;
-
-  return (
-    <div className="movieDetail">
-      <h2>{details?.title || movie.title}</h2>
-      <p>{details?.description || 'No description available.'}</p>
-    </div>
-  );
+return ( <div> <h2>{details?.movie.title}</h2> <p>{details?.movie.description}</p> </div>
+);
 }
-
-MovieDetail.propTypes = {
-  movie: PropTypes.shape({
-    id: PropTypes.oneOfType([
-      PropTypes.string,
-      PropTypes.number,
-    ]).isRequired,
-    title: PropTypes.string,
-    description: PropTypes.string,
-  }),
-};
 
 export default MovieDetail;
