@@ -15,7 +15,7 @@ function MovieDetail({ movie }) {
     setError(null);
 
     axios
-      .get(${baseUrl}/movies/)
+      .get(`${baseUrl}/movies/${movie.id}`)
       .then((response) => {
         const data = response.data;
         setDetails(data.movie || data);

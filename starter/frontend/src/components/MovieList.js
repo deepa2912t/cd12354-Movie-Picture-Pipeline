@@ -10,7 +10,7 @@ function MovieList({ onMovieClick }) {
     const baseUrl = process.env.REACT_APP_MOVIE_API_URL || '';
 
     axios
-      .get(${baseUrl}/movies)
+      .get(`${baseUrl}/movies`)
       .then((response) => {
         const data = response.data;
         if (data && Array.isArray(data.movies)) {
