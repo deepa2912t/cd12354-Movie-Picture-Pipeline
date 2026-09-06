@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
-import { movieApiUrl } from '../api';
 
 function MovieList({ onMovieClick }) {
   const [movies, setMovies] = useState([]);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    const baseUrl = movieApiUrl || process.env.REACT_APP_MOVIE_API_URL || '';
+    const baseUrl = process.env.REACT_APP_MOVIE_API_URL || '';
 
     axios
       .get(`${baseUrl}/movies`)
