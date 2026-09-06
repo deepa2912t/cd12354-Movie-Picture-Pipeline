@@ -9,7 +9,7 @@ function MovieList({ onMovieClick }) {
 
   useEffect(() => {
     axios
-      .get(${movieApiUrl}/movies)
+      .get(`${movieApiUrl}/movies`)
       .then((response) => setMovies(response.data.movies))
       .catch(() => setError(true));
   }, []);
@@ -20,8 +20,8 @@ function MovieList({ onMovieClick }) {
 
   return (
     <ul>
-      {movies.map((movie) => (
-        <li className="movieItem" key={movie.id} onClick={() => onMovieClick(movie)}>
+      {(movies || []).map((movie) => (
+        <li className="movieItem" key={movie.id} onClick={() => onMovieClick && onMovieClick(movie)}>
           {movie.title}
         </li>
       ))}

@@ -9,7 +9,7 @@ function MovieDetail({ movie }) {
   useEffect(() => {
     if (!movie || !movie.id) return;
 
-    axios.get(${movieApiUrl}/movies/).then((response) => {
+    axios.get(`${movieApiUrl}/movies/${movie.id}`).then((response) => {
       setDetails(response.data);
     });
   }, [movie]);
