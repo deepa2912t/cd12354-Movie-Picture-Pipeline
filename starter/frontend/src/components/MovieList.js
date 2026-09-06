@@ -9,7 +9,7 @@ function MovieList({ onMovieClick }) {
 
   useEffect(() => {
     axios
-      .get(`${movieApiUrl}/movies`)
+      .get(${movieApiUrl}/movies)
       .then((response) => setMovies(response.data.movies))
       .catch(() => setError(true));
   }, []);
@@ -34,4 +34,3 @@ MovieList.propTypes = {
 };
 
 export default MovieList;
-
