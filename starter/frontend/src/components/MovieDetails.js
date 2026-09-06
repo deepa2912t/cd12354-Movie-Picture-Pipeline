@@ -31,3 +31,4 @@ MovieDetail.propTypes = {
 };
 
 export default MovieDetail;
+
