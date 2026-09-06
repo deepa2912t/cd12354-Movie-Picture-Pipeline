@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
+import { movieApiUrl } from '../api';
 
 function MovieDetail({ movie }) {
   const [details, setDetails] = useState(null);
@@ -10,7 +11,7 @@ function MovieDetail({ movie }) {
   useEffect(() => {
     if (!movie || !movie.id) return;
 
-    const baseUrl = process.env.REACT_APP_MOVIE_API_URL || '';
+    const baseUrl = movieApiUrl || process.env.REACT_APP_MOVIE_API_URL || '';
     setLoading(true);
     setError(null);
 

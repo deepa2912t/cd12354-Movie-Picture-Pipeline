@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
+import { movieApiUrl } from '../api';
 
 function MovieList({ onMovieClick }) {
   const [movies, setMovies] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    const baseUrl = process.env.REACT_APP_MOVIE_API_URL || '';
+    const baseUrl = movieApiUrl || process.env.REACT_APP_MOVIE_API_URL || '';
 
     axios
       .get(`${baseUrl}/movies`)
@@ -21,17 +21,13 @@ function MovieList({ onMovieClick }) {
         } else {
           setMovies([]);
         }
-        setLoading(false);
       })
-      .catch((err) => {
-        console.error('Error fetching movies:', err);
-        setError(err.message);
-        setLoading(false);
-      });
+      .catch(() => setError(true));
   }, []);
 
-  if (loading) return <div>Loading movies...</div>;
-  if (error) return <div>Error loading movies: {error}</div>;
+  if (error) {
+    return <p role="alert">Unable to load movies. Please try again later.</p>;
+  }
 
   return (
     <ul>
