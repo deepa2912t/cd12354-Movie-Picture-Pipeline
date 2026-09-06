@@ -1,67 +1,52 @@
-name: Backend Continuous Integration
+name: Backend CI
 
 on:
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
     paths:
       - 'starter/backend/**'
   workflow_dispatch:
 
 jobs:
   lint:
-    name: Lint Backend
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: starter/backend
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
-      - name: Install Pipenv
-        run: pip install pipenv
-
-      - name: Install Dependencies
-        working-directory: starter/backend
-        run: pipenv install --dev
-
-      - name: Run Linter
-        working-directory: starter/backend
-        run: pipenv run lint
+          cache: pipenv
+          cache-dependency-path: starter/backend/Pipfile
+      - run: pip install pipenv
+      - run: pipenv install --dev
+      - run: pipenv run lint
 
   test:
-    name: Test Backend
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: starter/backend
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
-      - name: Install Pipenv
-        run: pip install pipenv
-
-      - name: Install Dependencies
-        working-directory: starter/backend
-        run: pipenv install --dev
-
-      - name: Run Unit Tests
-        working-directory: starter/backend
-        run: pipenv run test
+          cache: pipenv
+          cache-dependency-path: starter/backend/Pipfile
+      - run: pip install pipenv
+      - run: pipenv install --dev
+      - run: pipenv run test
 
   build:
-    name: Build Docker Image
     needs: [lint, test]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Build Docker Image
-        working-directory: starter/backend
-        run: docker build --tag mp-backend:ci-test .
+      - uses: actions/checkout@v4
+      - uses: docker/build-push-action@v6
+        with:
+          context: starter/backend
+          push: false
+          tags: mp-backend:${{ github.sha }}

@@ -1,46 +1,33 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
-
-# Fetch dynamic region and account details
-data "aws_region" "current" {}
-
 ####################
 # VPC Configuration
 ####################
+# Create a VPC
 resource "aws_vpc" "vpc" {
+  tags = {
+    "Name" = "udacity"
+  }
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
   enable_dns_hostnames = true
-
-  tags = {
-    Name = "udacity"
-  }
 }
 
-# Internet Gateway
+# Create an internet gateway
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.vpc.id
 }
 
-# Public Subnet
+# Create a public subnet
 resource "aws_subnet" "public_subnet" {
   vpc_id                  = aws_vpc.vpc.id
   cidr_block              = "10.0.1.0/24"
-  availability_zone       = "${data.aws_region.current.name}${var.public_az}"
+  availability_zone       = "us-east-1${var.public_az}"
   map_public_ip_on_launch = true
-
   tags = {
     Name = "udacity-public"
   }
 }
 
-# Public Route Table
+# Create public route table
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.vpc.id
 
@@ -54,24 +41,23 @@ resource "aws_route_table" "public" {
   }
 }
 
-# Associate Public Route Table
+# Associate the route table
 resource "aws_route_table_association" "public" {
   subnet_id      = aws_subnet.public_subnet.id
   route_table_id = aws_route_table.public.id
 }
 
-# Private Subnet
+# Create a private subnet
 resource "aws_subnet" "private_subnet" {
   vpc_id            = aws_vpc.vpc.id
+  availability_zone = "us-east-1${var.private_az}"
   cidr_block        = "10.0.2.0/24"
-  availability_zone = "${data.aws_region.current.name}${var.private_az}"
-
   tags = {
     Name = "udacity-private"
   }
 }
 
-# Private Route Table
+# Create private route table
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.vpc.id
 
@@ -80,78 +66,49 @@ resource "aws_route_table" "private" {
   }
 }
 
-# Associate Private Route Table
+# Associate private route table
 resource "aws_route_table_association" "private" {
   subnet_id      = aws_subnet.private_subnet.id
   route_table_id = aws_route_table.private.id
 }
 
-###############################
-# VPC Endpoints Security Group
-###############################
-resource "aws_security_group" "vpc_endpoints" {
-  name        = "vpc-endpoints-sg"
-  description = "Security group for VPC Interface Endpoints"
-  vpc_id      = aws_vpc.vpc.id
-
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = [aws_vpc.vpc.cidr_block]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "vpc-endpoints-sg"
-  }
-}
-
-#################
-# VPC Endpoints
-#################
+# Create EKS endpoint for private access
 resource "aws_vpc_endpoint" "eks" {
-  count               = var.enable_private ? 1 : 0
+  count               = var.enable_private == true ? 1 : 0 # only enable when private
   vpc_id              = aws_vpc.vpc.id
-  service_name        = "com.amazonaws.${data.aws_region.current.name}.eks"
+  service_name        = "com.amazonaws.us-east-1.eks"
   vpc_endpoint_type   = "Interface"
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-  subnet_ids          = [aws_subnet.private_subnet.id]
-  private_dns_enabled = false
-}
-
-resource "aws_vpc_endpoint" "ec2" {
-  count               = var.enable_private ? 1 : 0
-  vpc_id              = aws_vpc.vpc.id
-  service_name        = "com.amazonaws.${data.aws_region.current.name}.ec2"
-  vpc_endpoint_type   = "Interface"
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  security_group_ids  = [aws_eks_cluster.main.vpc_config.0.cluster_security_group_id]
   subnet_ids          = [aws_subnet.private_subnet.id]
   private_dns_enabled = true
 }
 
-resource "aws_vpc_endpoint" "ecr-dkr-endpoint" {
-  count               = var.enable_private ? 1 : 0
+# Create EC2 endpoint for private access
+resource "aws_vpc_endpoint" "ec2" {
+  count               = var.enable_private == true ? 1 : 0
   vpc_id              = aws_vpc.vpc.id
-  service_name        = "com.amazonaws.${data.aws_region.current.name}.ecr.dkr"
+  service_name        = "com.amazonaws.us-east-1.ec2"
   vpc_endpoint_type   = "Interface"
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  security_group_ids  = [aws_eks_cluster.main.vpc_config.0.cluster_security_group_id]
+  private_dns_enabled = true
+}
+
+resource "aws_vpc_endpoint" "ecr-dkr-endpoint" {
+  count               = var.enable_private == true ? 1 : 0
+  vpc_id              = aws_vpc.vpc.id
+  service_name        = "com.amazonaws.us-east-1.ecr.dkr"
+  vpc_endpoint_type   = "Interface"
+  security_group_ids  = [aws_eks_cluster.main.vpc_config.0.cluster_security_group_id]
   subnet_ids          = [aws_subnet.private_subnet.id]
   private_dns_enabled = true
 }
 
 resource "aws_vpc_endpoint" "ecr-api-endpoint" {
-  count               = var.enable_private ? 1 : 0
+  count               = var.enable_private == true ? 1 : 0
   vpc_id              = aws_vpc.vpc.id
-  service_name        = "com.amazonaws.${data.aws_region.current.name}.ecr.api"
+  service_name        = "com.amazonaws.us-east-1.ecr.api"
   vpc_endpoint_type   = "Interface"
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  security_group_ids  = [aws_eks_cluster.main.vpc_config.0.cluster_security_group_id]
   subnet_ids          = [aws_subnet.private_subnet.id]
   private_dns_enabled = true
 }
@@ -182,23 +139,21 @@ resource "aws_ecr_repository" "backend" {
 ################
 # EKS Resources
 ################
+# Create an EKS cluster
 resource "aws_eks_cluster" "main" {
   name     = "cluster"
   version  = var.k8s_version
   role_arn = aws_iam_role.eks_cluster.arn
-
   vpc_config {
     subnet_ids              = [aws_subnet.private_subnet.id, aws_subnet.public_subnet.id]
-    endpoint_public_access  = var.enable_private ? false : true
+    endpoint_public_access  = var.enable_private == true ? false : true
     endpoint_private_access = true
   }
-
-  depends_on = [
-    aws_iam_role_policy_attachment.eks_cluster,
-    aws_iam_role_policy_attachment.eks_service
-  ]
+  depends_on = [aws_iam_role_policy_attachment.eks_cluster, aws_iam_role_policy_attachment.eks_service]
 }
 
+
+# Create an IAM role for the EKS cluster
 resource "aws_iam_role" "eks_cluster" {
   name = "eks_cluster_role"
 
@@ -216,6 +171,7 @@ resource "aws_iam_role" "eks_cluster" {
   })
 }
 
+# Attach policies to the EKS cluster IAM role
 resource "aws_iam_role_policy_attachment" "eks_cluster" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
   role       = aws_iam_role.eks_cluster.name
@@ -226,11 +182,13 @@ resource "aws_iam_role_policy_attachment" "eks_service" {
   role       = aws_iam_role.eks_cluster.name
 }
 
+
 ##################
 # EKS Node Group
 ##################
+# Track latest release for the given k8s version
 data "aws_ssm_parameter" "eks_ami_release_version" {
-  name = "/aws/service/eks/optimized-ami/${aws_eks_cluster.main.version}/amazon-linux-2023/x86_64/standard/recommended/release_version"
+  name = "/aws/service/eks/optimized-ami/${aws_eks_cluster.main.version}/amazon-linux-2/recommended/release_version"
 }
 
 resource "aws_eks_node_group" "main" {
@@ -238,9 +196,7 @@ resource "aws_eks_node_group" "main" {
   cluster_name    = aws_eks_cluster.main.name
   version         = aws_eks_cluster.main.version
   node_role_arn   = aws_iam_role.node_group.arn
-  # Routed to public subnet to ensure internet connectivity without NAT Gateway
-  subnet_ids      = [aws_subnet.public_subnet.id]
-  ami_type        = "AL2023_x86_64_STANDARD"
+  subnet_ids      = [var.enable_private == true ? aws_subnet.private_subnet.id : aws_subnet.public_subnet.id]
   release_version = nonsensitive(data.aws_ssm_parameter.eks_ami_release_version.value)
   instance_types  = ["t3.small"]
 
@@ -250,6 +206,9 @@ resource "aws_eks_node_group" "main" {
     min_size     = 1
   }
 
+
+  # Ensure that IAM Role permissions are created before and deleted after EKS Node Group handling.
+  # Otherwise, EKS will not be able to properly delete EC2 Instances and Elastic Network Interfaces.
   depends_on = [
     aws_iam_role_policy_attachment.node_group_policy,
     aws_iam_role_policy_attachment.cni_policy,
@@ -262,6 +221,7 @@ resource "aws_eks_node_group" "main" {
   }
 }
 
+// IAM Configuration
 resource "aws_iam_role" "node_group" {
   name               = "udacity-node-group"
   assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
@@ -301,12 +261,12 @@ data "aws_iam_policy_document" "assume_role_policy" {
 ######################
 # CodeBuild Resources
 ######################
+# Create a CodeBuild project
 resource "aws_codebuild_project" "codebuild" {
   name          = "udacity"
   description   = "Udacity CodeBuild project"
   service_role  = aws_iam_role.codebuild.arn
   build_timeout = 60
-
   artifacts {
     type = "NO_ARTIFACTS"
   }
@@ -321,7 +281,7 @@ resource "aws_codebuild_project" "codebuild" {
 
   source {
     type            = "GITHUB"
-    location        = "https://github.com/deepa2912t/cd12354-Movie-Picture-Pipeline.git"
+    location        = "https://github.com/your-org/your-repo"
     git_clone_depth = 1
     buildspec       = "buildspec.yml"
   }
@@ -331,6 +291,7 @@ resource "aws_codebuild_project" "codebuild" {
   }
 }
 
+# Create the Codebuild Role
 resource "aws_iam_role" "codebuild" {
   name = "codebuild-role"
 
@@ -348,16 +309,22 @@ resource "aws_iam_role" "codebuild" {
   })
 }
 
+# Attach the IAM policy to the codebuild role
 resource "aws_iam_role_policy_attachment" "codebuild" {
   policy_arn = "arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess"
   role       = aws_iam_role.codebuild.name
 }
 
 ####################
-# Github Action user
+# Github Action role
 ####################
 resource "aws_iam_user" "github_action_user" {
   name = "github-action-user"
+}
+
+resource "aws_iam_user_policy" "github_action_user_permission" {
+  user   = aws_iam_user.github_action_user.name
+  policy = data.aws_iam_policy_document.github_policy.json
 }
 
 data "aws_iam_policy_document" "github_policy" {
