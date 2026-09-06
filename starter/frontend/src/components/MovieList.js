@@ -8,20 +8,9 @@ function MovieList({ onMovieClick }) {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    const baseUrl = movieApiUrl || process.env.REACT_APP_MOVIE_API_URL || '';
-
     axios
-      .get(`${baseUrl}/movies`)
-      .then((response) => {
-        const data = response.data;
-        if (data && Array.isArray(data.movies)) {
-          setMovies(data.movies);
-        } else if (Array.isArray(data)) {
-          setMovies(data);
-        } else {
-          setMovies([]);
-        }
-      })
+      .get(`${movieApiUrl}/movies`)
+      .then((response) => setMovies(response.data.movies))
       .catch(() => setError(true));
   }, []);
 
@@ -31,8 +20,8 @@ function MovieList({ onMovieClick }) {
 
   return (
     <ul>
-      {(movies || []).map((movie) => (
-        <li className="movieItem" key={movie.id} onClick={() => onMovieClick && onMovieClick(movie)}>
+      {movies.map((movie) => (
+        <li className="movieItem" key={movie.id} onClick={() => onMovieClick(movie)}>
           {movie.title}
         </li>
       ))}
