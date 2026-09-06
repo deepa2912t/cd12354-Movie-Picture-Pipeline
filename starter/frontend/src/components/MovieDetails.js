@@ -8,7 +8,6 @@ function MovieDetail({ movie }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Return early if no movie selected
     if (!movie || !movie.id) return;
 
     const baseUrl = process.env.REACT_APP_MOVIE_API_URL || '';
@@ -18,7 +17,6 @@ function MovieDetail({ movie }) {
     axios
       .get(`${baseUrl}/movies/${movie.id}`)
       .then((response) => {
-        // Backend returns either response.data directly or { movie: {...} }
         const data = response.data;
         setDetails(data.movie || data);
         setLoading(false);
@@ -28,7 +26,7 @@ function MovieDetail({ movie }) {
         setError(err.message);
         setLoading(false);
       });
-  }, [movie?.id]); // Only re-run if the specific movie ID changes
+  }, [movie?.id]);
 
   if (!movie) return <div>Select a movie to view details.</div>;
   if (loading) return <div>Loading movie details...</div>;
